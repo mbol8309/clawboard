@@ -7,8 +7,15 @@ Permite crear proyectos con su repo, gestionar tareas por estados y mantener un 
 ## Stack
 - **Backend:** Node.js + Express + Sequelize + SQLite (migrable a MySQL)
 - **Auth:** JWT (usuarios humanos) + API Key (agente IA)
-- **Frontend:** React + Vite + Tailwind + React Query + @dnd-kit (drag & drop)
+- **Frontend:** React + Vite + **Mantine** (UI framework) + React Query + @dnd-kit (drag & drop)
 - **CI/CD:** GitHub Actions → self-hosted runner Pi (dev)
+
+## Por qué Mantine
+- Mobile-first, componentes responsivos por defecto
+- Drawer para panel de detalle de tarea (mobile-friendly)
+- Timeline para historial de mensajes
+- Notifications integradas (reemplaza ToastProvider)
+- Modal, Card, Badge, Button ya responsivos y pulidos
 
 ## Regla obligatoria — Git
 Todo cambio debe pushearse inmediatamente:
