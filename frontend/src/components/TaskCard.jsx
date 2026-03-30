@@ -1,27 +1,14 @@
 import React from 'react';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { Paper, Badge, Text, Group, Stack } from '@mantine/core';
 import { IconMessage } from '@tabler/icons-react';
 import { STATUS_CONFIG } from './statusColors';
 
 export default function TaskCard({ task, onClick }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
   const cfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.backlog;
 
   return (
     <Paper
-      ref={setNodeRef}
-      style={{ ...style, cursor: 'pointer' }}
-      {...attributes}
-      {...listeners}
+      style={{ cursor: 'pointer' }}
       onClick={onClick}
       shadow="xs"
       p="sm"
