@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  AppShell, Group, Title, Text, Button, ActionIcon, Anchor, Modal, TextInput
+  AppShell, Group, Title, Text, Button, ActionIcon, Anchor, Modal, TextInput, Textarea
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconArrowLeft, IconPlus } from '@tabler/icons-react';
@@ -17,6 +17,7 @@ export default function ProjectBoard() {
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [showAddTask, setShowAddTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskDesc, setNewTaskDesc] = useState('');
 
   const { data: project } = useQuery({
     queryKey: ['project', id],
@@ -30,10 +31,11 @@ export default function ProjectBoard() {
   });
 
   const createTask = useMutation({
-    mutationFn: (title) => api.post('/tasks', { projectId: id, title }),
+    mutationFn: ({ title, description }) => api.post('/tasks', { projectId: id, title, description }),
     onSuccess: () => {
       qc.invalidateQueries(['tasks', id]);
       setNewTaskTitle('');
+      setNewTaskDesc('');
       setShowAddTask(false);
       notifications.show({ message: 'Tarea creada', color: 'green' });
     },
@@ -93,15 +95,23 @@ export default function ProjectBoard() {
           placeholder="Título de la tarea"
           value={newTaskTitle}
           onChange={(e) => setNewTaskTitle(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && newTaskTitle.trim() && createTask.mutate(newTaskTitle)}
+          mb="sm"
+        />
+        <Textarea
+          placeholder="Descripción (opcional)"
+          value={newTaskDesc}
+          onChange={(e) => setNewTaskDesc(e.target.value)}
+          autosize
+          minRows={2}
+          maxRows={5}
           mb="sm"
         />
         <Group justify="flex-end">
-          <Button variant="default" onClick={() => setShowAddTask(false)}>Cancelar</Button>
+          <Button variant="default" onClick={() => { setShowAddTask(false); setNewTaskTitle(''); setNewTaskDesc(''); }}>Cancelar</Button>
           <Button
             disabled={!newTaskTitle.trim()}
             loading={createTask.isPending}
-            onClick={() => newTaskTitle.trim() && createTask.mutate(newTaskTitle)}
+            onClick={() => newTaskTitle.trim() && createTask.mutate({ title: newTaskTitle, description: newTaskDesc })}
           >
             Crear
           </Button>

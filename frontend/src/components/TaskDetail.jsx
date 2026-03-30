@@ -15,6 +15,7 @@ function TaskDetailContent({ taskId, onClose, onDeleted }) {
   const { user } = useAuthStore();
   const qc = useQueryClient();
   const [newMsg, setNewMsg] = useState('');
+  const [editDesc, setEditDesc] = useState(null); // null = no editando, string = editando
   const [editTitle, setEditTitle] = useState(null);
   const messagesEndRef = useRef(null);
 
@@ -119,14 +120,19 @@ function TaskDetailContent({ taskId, onClose, onDeleted }) {
           autosize
           minRows={2}
           maxRows={5}
-          defaultValue={task.description || ''}
-          onBlur={(e) => {
-            if (e.target.value !== (task.description || '')) {
-              updateTask.mutate({ title: task.title, description: e.target.value });
-            }
-          }}
+          value={editDesc !== null ? editDesc : (task.description || '')}
+          onChange={(e) => setEditDesc(e.target.value)}
           placeholder="Descripción de la tarea..."
         />
+        {editDesc !== null && editDesc !== (task.description || '') && (
+          <Group justify="flex-end" gap="xs">
+            <Button size="xs" variant="default" onClick={() => setEditDesc(null)}>Cancelar</Button>
+            <Button size="xs" loading={updateTask.isPending}
+              onClick={() => { updateTask.mutate({ title: task.title, description: editDesc }); setEditDesc(null); }}>
+              Guardar
+            </Button>
+          </Group>
+        )}
       </Stack>
 
       {/* Messages / Timeline */}
