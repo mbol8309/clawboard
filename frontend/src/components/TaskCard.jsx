@@ -1,8 +1,9 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { STATUS_COLORS, STATUS_LABELS } from './statusColors';
-import { MessageSquare } from 'lucide-react';
+import { Paper, Badge, Text, Group, Stack } from '@mantine/core';
+import { IconMessage } from '@tabler/icons-react';
+import { STATUS_CONFIG } from './statusColors';
 
 export default function TaskCard({ task, onClick }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
@@ -13,30 +14,39 @@ export default function TaskCard({ task, onClick }) {
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const colors = STATUS_COLORS[task.status] || STATUS_COLORS.backlog;
+  const cfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.backlog;
 
   return (
-    <div
+    <Paper
       ref={setNodeRef}
-      style={style}
+      style={{ ...style, cursor: 'pointer' }}
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+      shadow="xs"
+      p="sm"
+      radius="md"
+      withBorder
+      styles={{
+        root: {
+          '&:hover': { boxShadow: 'var(--mantine-shadow-md)' }
+        }
+      }}
     >
-      <div className="text-sm font-medium text-gray-800 mb-2 leading-snug">{task.title}</div>
-      <div className="flex items-center justify-between">
-        <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${colors.bg} ${colors.text}`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />
-          {STATUS_LABELS[task.status]}
-        </span>
-        {task.TaskMessages?.length > 0 && (
-          <span className="flex items-center gap-0.5 text-xs text-gray-400">
-            <MessageSquare size={12} />
-            {task.TaskMessages.length}
-          </span>
-        )}
-      </div>
-    </div>
+      <Stack gap={6}>
+        <Text fw={600} size="sm" style={{ lineHeight: 1.3 }}>{task.title}</Text>
+        <Group justify="space-between">
+          <Badge color={cfg.color} variant="light" size="sm">
+            {cfg.icon} {cfg.label}
+          </Badge>
+          {task.TaskMessages?.length > 0 && (
+            <Group gap={4}>
+              <IconMessage size={12} color="gray" />
+              <Text size="xs" c="dimmed">{task.TaskMessages.length}</Text>
+            </Group>
+          )}
+        </Group>
+      </Stack>
+    </Paper>
   );
 }

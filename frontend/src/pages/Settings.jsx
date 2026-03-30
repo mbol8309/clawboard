@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Copy, Check } from 'lucide-react';
+import {
+  Container, Title, Table, Button, Modal, TextInput, Badge,
+  Group, ActionIcon, Text, Stack, Code, CopyButton, Tooltip
+} from '@mantine/core';
+import { notifications } from '@mantine/notifications';
+import { IconArrowLeft, IconPlus, IconTrash, IconCopy, IconCheck } from '@tabler/icons-react';
 import api from '../services/api';
-import { useToast } from '../components/ToastProvider';
 
 export default function Settings() {
   const navigate = useNavigate();
-  const toast = useToast();
   const qc = useQueryClient();
   const [newKeyName, setNewKeyName] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [revealedKey, setRevealedKey] = useState(null);
-  const [copied, setCopied] = useState(false);
 
   const { data: keys } = useQuery({
     queryKey: ['apikeys'],
@@ -27,90 +29,120 @@ export default function Settings() {
       setNewKeyName('');
       setShowCreate(false);
     },
-    onError: () => toast('Error al crear key', 'error'),
+    onError: () => notifications.show({ message: 'Error al crear key', color: 'red' }),
   });
 
   const revokeKey = useMutation({
     mutationFn: (id) => api.delete(`/apikeys/${id}`),
-    onSuccess: () => { qc.invalidateQueries(['apikeys']); toast('Key revocada', 'info'); },
+    onSuccess: () => {
+      qc.invalidateQueries(['apikeys']);
+      notifications.show({ message: 'Key revocada', color: 'blue' });
+    },
   });
 
-  const copyKey = () => {
-    navigator.clipboard.writeText(revealedKey);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const rows = keys?.map((k) => (
+    <Table.Tr key={k.id}>
+      <Table.Td>
+        <Text fw={500} size="sm">{k.name}</Text>
+      </Table.Td>
+      <Table.Td>
+        <Badge color="green" variant="light" size="sm">activa</Badge>
+      </Table.Td>
+      <Table.Td>
+        <Text size="xs" c="dimmed">
+          {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString('es-ES') : 'Nunca'}
+        </Text>
+      </Table.Td>
+      <Table.Td>
+        <ActionIcon color="red" variant="subtle" onClick={() => revokeKey.mutate(k.id)}>
+          <IconTrash size={16} />
+        </ActionIcon>
+      </Table.Td>
+    </Table.Tr>
+  ));
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-3">
-        <button onClick={() => navigate('/dashboard')} className="text-gray-400 hover:text-gray-700"><ArrowLeft size={20} /></button>
-        <h1 className="text-base font-bold text-gray-900">Configuración — API Keys</h1>
-      </div>
+    <Container size="md" py="xl">
+      <Group mb="lg" gap="sm">
+        <ActionIcon variant="subtle" color="gray" onClick={() => navigate('/dashboard')}>
+          <IconArrowLeft size={20} />
+        </ActionIcon>
+        <Title order={3}>Configuración — API Keys</Title>
+      </Group>
 
-      <div className="max-w-2xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-gray-700">API Keys activas</h2>
-          <button onClick={() => setShowCreate(true)} className="flex items-center gap-1 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-blue-700">
-            <Plus size={14} /> Nueva key
-          </button>
-        </div>
+      <Group justify="space-between" mb="md">
+        <Text fw={500} c="dimmed">API Keys activas</Text>
+        <Button leftSection={<IconPlus size={14} />} size="sm" onClick={() => setShowCreate(true)}>
+          Nueva key
+        </Button>
+      </Group>
 
-        <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-          {keys?.length === 0 && <div className="px-4 py-3 text-sm text-gray-400">No hay API keys</div>}
-          {keys?.map((k) => (
-            <div key={k.id} className="flex items-center justify-between px-4 py-3">
-              <div>
-                <div className="font-medium text-sm text-gray-800">{k.name}</div>
-                <div className="text-xs text-gray-400">
-                  {k.lastUsedAt ? `Último uso: ${new Date(k.lastUsedAt).toLocaleString('es-ES')}` : 'Nunca usado'}
-                </div>
-              </div>
-              <button onClick={() => revokeKey.mutate(k.id)} className="text-gray-400 hover:text-red-500 p-1 rounded">
-                <Trash2 size={16} />
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
+      <Table withTableBorder withColumnBorders>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>Nombre</Table.Th>
+            <Table.Th>Estado</Table.Th>
+            <Table.Th>Último uso</Table.Th>
+            <Table.Th />
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {rows?.length === 0 ? (
+            <Table.Tr>
+              <Table.Td colSpan={4}>
+                <Text size="sm" c="dimmed" ta="center" py="sm">No hay API keys</Text>
+              </Table.Td>
+            </Table.Tr>
+          ) : rows}
+        </Table.Tbody>
+      </Table>
 
       {/* Create modal */}
-      {showCreate && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4">
-            <h2 className="text-lg font-bold mb-3">Nueva API Key</h2>
-            <input
-              autoFocus
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-4"
-              placeholder="Nombre (ej: Noa Agent)"
-              value={newKeyName}
-              onChange={(e) => setNewKeyName(e.target.value)}
-            />
-            <div className="flex gap-2">
-              <button onClick={() => setShowCreate(false)} className="flex-1 border border-gray-300 rounded-lg py-2 text-sm text-gray-600">Cancelar</button>
-              <button onClick={() => newKeyName.trim() && createKey.mutate(newKeyName)} disabled={!newKeyName.trim()} className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50">Crear</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal opened={showCreate} onClose={() => setShowCreate(false)} title="Nueva API Key">
+        <Stack gap="sm">
+          <TextInput
+            autoFocus
+            label="Nombre"
+            placeholder="Noa Agent"
+            value={newKeyName}
+            onChange={(e) => setNewKeyName(e.target.value)}
+          />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setShowCreate(false)}>Cancelar</Button>
+            <Button
+              disabled={!newKeyName.trim()}
+              loading={createKey.isPending}
+              onClick={() => newKeyName.trim() && createKey.mutate(newKeyName)}
+            >
+              Crear
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       {/* Reveal key modal */}
-      {revealedKey && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4">
-            <h2 className="text-lg font-bold mb-2">⚠️ Guarda esta key</h2>
-            <p className="text-sm text-gray-500 mb-3">Esta es la única vez que verás esta key. Cópiala ahora.</p>
-            <div className="bg-gray-100 rounded-lg px-4 py-3 font-mono text-sm break-all text-gray-800 mb-4">{revealedKey}</div>
-            <div className="flex gap-2">
-              <button onClick={copyKey} className="flex-1 flex items-center justify-center gap-2 border border-gray-300 rounded-lg py-2 text-sm hover:bg-gray-50">
-                {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                {copied ? 'Copiado' : 'Copiar'}
-              </button>
-              <button onClick={() => setRevealedKey(null)} className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700">Cerrar</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      <Modal opened={!!revealedKey} onClose={() => setRevealedKey(null)} title="⚠️ Guarda esta key">
+        <Stack gap="sm">
+          <Text size="sm" c="dimmed">Esta es la única vez que verás esta key. Cópiala ahora.</Text>
+          <Code block style={{ wordBreak: 'break-all' }}>{revealedKey}</Code>
+          <Group justify="flex-end">
+            <CopyButton value={revealedKey || ''} timeout={2000}>
+              {({ copied, copy }) => (
+                <Tooltip label={copied ? 'Copiado!' : 'Copiar'} withArrow position="right">
+                  <Button
+                    color={copied ? 'teal' : 'blue'}
+                    leftSection={copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+                    onClick={copy}
+                  >
+                    {copied ? 'Copiado' : 'Copiar'}
+                  </Button>
+                </Tooltip>
+              )}
+            </CopyButton>
+            <Button variant="default" onClick={() => setRevealedKey(null)}>Cerrar</Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </Container>
   );
 }

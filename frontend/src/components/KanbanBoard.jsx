@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { ScrollArea } from '@mantine/core';
 import KanbanColumn from './KanbanColumn';
 import TaskCard from './TaskCard';
 import { ALL_STATUSES } from './statusColors';
@@ -30,7 +31,6 @@ export default function KanbanBoard({ tasks, onTaskClick, onAddTask }) {
     setActiveTask(null);
     if (!over) return;
     const task = tasks.find((t) => t.id === active.id);
-    // over.id can be a column status or another task id
     const targetStatus = ALL_STATUSES.includes(over.id)
       ? over.id
       : tasks.find((t) => t.id === over.id)?.status;
@@ -41,17 +41,19 @@ export default function KanbanBoard({ tasks, onTaskClick, onAddTask }) {
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex gap-4 overflow-x-auto pb-4">
-        {ALL_STATUSES.map((status) => (
-          <KanbanColumn
-            key={status}
-            status={status}
-            tasks={tasksByStatus[status]}
-            onTaskClick={onTaskClick}
-            onAddTask={status === 'backlog' ? onAddTask : undefined}
-          />
-        ))}
-      </div>
+      <ScrollArea type="auto">
+        <div style={{ display: 'flex', gap: 16, paddingBottom: 16, minWidth: 'max-content' }}>
+          {ALL_STATUSES.map((status) => (
+            <KanbanColumn
+              key={status}
+              status={status}
+              tasks={tasksByStatus[status]}
+              onTaskClick={onTaskClick}
+              onAddTask={status === 'backlog' ? onAddTask : undefined}
+            />
+          ))}
+        </div>
+      </ScrollArea>
       <DragOverlay>
         {activeTask ? <TaskCard task={activeTask} /> : null}
       </DragOverlay>

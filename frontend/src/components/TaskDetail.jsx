@@ -1,13 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, Send, Trash2 } from 'lucide-react';
-import { STATUS_COLORS, STATUS_LABELS, ALL_STATUSES } from './statusColors';
-import MessageBubble from './MessageBubble';
+import {
+  Drawer, Stack, Group, Text, TextInput, Textarea, Button, Badge,
+  Select, Timeline, CloseButton, ScrollArea, Divider, ActionIcon
+} from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
+import { notifications } from '@mantine/notifications';
+import { IconTrash, IconSend, IconRobot, IconUser } from '@tabler/icons-react';
+import { STATUS_CONFIG, ALL_STATUSES } from './statusColors';
 import api from '../services/api';
-import { useToast } from './ToastProvider';
+import { useAuthStore } from '../store/authStore';
 
-export default function TaskDetail({ taskId, onClose, onDeleted }) {
-  const toast = useToast();
+function TaskDetailContent({ taskId, onClose, onDeleted }) {
+  const { user } = useAuthStore();
   const qc = useQueryClient();
   const [newMsg, setNewMsg] = useState('');
   const [editTitle, setEditTitle] = useState(null);
@@ -26,7 +31,11 @@ export default function TaskDetail({ taskId, onClose, onDeleted }) {
 
   const updateStatus = useMutation({
     mutationFn: (status) => api.patch(`/tasks/${taskId}/status`, { status }),
-    onSuccess: () => { qc.invalidateQueries(['task', taskId]); qc.invalidateQueries(['tasks']); toast('Estado actualizado', 'success'); },
+    onSuccess: () => {
+      qc.invalidateQueries(['task', taskId]);
+      qc.invalidateQueries(['tasks']);
+      notifications.show({ message: 'Estado actualizado', color: 'green' });
+    },
   });
 
   const updateTask = useMutation({
@@ -41,89 +50,198 @@ export default function TaskDetail({ taskId, onClose, onDeleted }) {
 
   const deleteTask = useMutation({
     mutationFn: () => api.delete(`/tasks/${taskId}`),
-    onSuccess: () => { qc.invalidateQueries(['tasks']); onDeleted?.(); onClose(); toast('Tarea eliminada', 'info'); },
+    onSuccess: () => {
+      qc.invalidateQueries(['tasks']);
+      onDeleted?.();
+      onClose();
+      notifications.show({ message: 'Tarea eliminada', color: 'blue' });
+    },
   });
 
-  if (!taskId) return null;
+  if (isLoading) return <Text p="md" c="dimmed">Cargando...</Text>;
+  if (!task) return null;
 
-  const colors = task ? (STATUS_COLORS[task.status] || STATUS_COLORS.backlog) : {};
+  const cfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.backlog;
+  const statusOptions = ALL_STATUSES.map((s) => ({
+    value: s,
+    label: `${STATUS_CONFIG[s].icon} ${STATUS_CONFIG[s].label}`,
+  }));
 
   return (
-    <div className="fixed inset-y-0 right-0 w-[420px] bg-white shadow-2xl flex flex-col z-40 border-l border-gray-200">
+    <Stack gap={0} h="100%" style={{ display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
-      <div className="flex items-start justify-between p-4 border-b border-gray-200">
-        <div className="flex-1 mr-2">
+      <Group px="md" py="sm" justify="space-between" style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}>
+        <Stack gap={4} style={{ flex: 1 }}>
           {editTitle !== null ? (
-            <input
+            <TextInput
               autoFocus
-              className="w-full text-base font-semibold border-b border-blue-400 outline-none pb-1"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              onBlur={() => { if (editTitle.trim()) updateTask.mutate({ title: editTitle, description: task.description }); setEditTitle(null); }}
+              onBlur={() => {
+                if (editTitle.trim()) updateTask.mutate({ title: editTitle, description: task.description });
+                setEditTitle(null);
+              }}
               onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
+              size="sm"
+              fw={600}
             />
           ) : (
-            <h2 className="text-base font-semibold text-gray-800 cursor-pointer hover:text-blue-600" onClick={() => setEditTitle(task?.title || '')}>
-              {isLoading ? 'Cargando...' : task?.title}
-            </h2>
+            <Text
+              fw={600}
+              size="sm"
+              style={{ cursor: 'pointer' }}
+              onClick={() => setEditTitle(task.title)}
+            >
+              {task.title}
+            </Text>
           )}
-          {task && (
-            <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full mt-1 ${colors.bg} ${colors.text}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />
-              {STATUS_LABELS[task.status]}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          <button onClick={() => deleteTask.mutate()} className="p-1 text-gray-400 hover:text-red-500 rounded"><Trash2 size={16} /></button>
-          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-700 rounded"><X size={18} /></button>
-        </div>
-      </div>
+          <Badge color={cfg.color} variant="light" size="sm">{cfg.icon} {cfg.label}</Badge>
+        </Stack>
+        <CloseButton onClick={onClose} />
+      </Group>
 
-      {/* Status buttons */}
-      {task && (
-        <div className="px-4 py-2 border-b border-gray-100 flex flex-wrap gap-1">
-          {ALL_STATUSES.map((s) => {
-            const c = STATUS_COLORS[s];
-            return (
-              <button
-                key={s}
-                onClick={() => updateStatus.mutate(s)}
-                className={`text-xs px-2 py-1 rounded-full border transition-all ${task.status === s ? `${c.bg} ${c.text} ${c.border} font-semibold` : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'}`}
-              >
-                {STATUS_LABELS[s]}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {/* Status select */}
+      <Stack px="md" py="sm" gap="xs" style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}>
+        <Select
+          label="Estado"
+          size="sm"
+          data={statusOptions}
+          value={task.status}
+          onChange={(val) => val && updateStatus.mutate(val)}
+        />
+      </Stack>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {task?.TaskMessages?.map((m) => <MessageBubble key={m.id} message={m} />)}
+      {/* Description */}
+      <Stack px="md" py="sm" gap="xs" style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}>
+        <Textarea
+          label="Descripción"
+          size="sm"
+          autosize
+          minRows={2}
+          maxRows={5}
+          defaultValue={task.description || ''}
+          onBlur={(e) => {
+            if (e.target.value !== (task.description || '')) {
+              updateTask.mutate({ title: task.title, description: e.target.value });
+            }
+          }}
+          placeholder="Descripción de la tarea..."
+        />
+      </Stack>
+
+      {/* Messages / Timeline */}
+      <ScrollArea style={{ flex: 1 }} px="md" py="sm">
+        {task.TaskMessages?.length > 0 ? (
+          <Timeline bulletSize={24} lineWidth={2}>
+            {task.TaskMessages.map((m) => {
+              const mCfg = STATUS_CONFIG[m.taskStatus] || STATUS_CONFIG.backlog;
+              const isUser = m.authorType === 'user';
+              const time = new Date(m.createdAt).toLocaleString('es-ES', {
+                day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+              });
+              return (
+                <Timeline.Item
+                  key={m.id}
+                  color={mCfg.color}
+                  bullet={isUser ? <IconUser size={12} /> : <IconRobot size={12} />}
+                  title={
+                    <Group gap="xs" mb={4}>
+                      <Text size="sm" fw={600}>{isUser ? '👤 Miguel' : '🤖 Noa'}</Text>
+                      <Badge color={mCfg.color} variant="light" size="xs">{mCfg.label}</Badge>
+                      <Text size="xs" c="dimmed">{time}</Text>
+                    </Group>
+                  }
+                >
+                  <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>{m.content}</Text>
+                </Timeline.Item>
+              );
+            })}
+          </Timeline>
+        ) : (
+          <Text size="sm" c="dimmed" ta="center" py="xl">Sin mensajes aún</Text>
+        )}
         <div ref={messagesEndRef} />
-      </div>
+      </ScrollArea>
 
       {/* Input */}
-      <div className="p-4 border-t border-gray-200">
-        <div className="flex gap-2">
-          <textarea
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
+      <Stack px="md" py="sm" gap="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)' }}>
+        <Group gap="xs" align="flex-end">
+          <Textarea
+            style={{ flex: 1 }}
+            size="sm"
             rows={2}
             placeholder="Escribe un mensaje..."
             value={newMsg}
             onChange={(e) => setNewMsg(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && newMsg.trim()) { e.preventDefault(); sendMessage.mutate(); } }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && newMsg.trim()) {
+                e.preventDefault();
+                sendMessage.mutate();
+              }
+            }}
           />
-          <button
-            onClick={() => newMsg.trim() && sendMessage.mutate()}
-            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          <ActionIcon
+            size="lg"
+            variant="filled"
             disabled={!newMsg.trim() || sendMessage.isPending}
+            onClick={() => newMsg.trim() && sendMessage.mutate()}
           >
-            <Send size={16} />
-          </button>
-        </div>
-      </div>
+            <IconSend size={16} />
+          </ActionIcon>
+        </Group>
+
+        {user?.role === 'admin' && (
+          <Button
+            color="red"
+            variant="light"
+            leftSection={<IconTrash size={14} />}
+            size="xs"
+            onClick={() => deleteTask.mutate()}
+            loading={deleteTask.isPending}
+          >
+            Eliminar tarea
+          </Button>
+        )}
+      </Stack>
+    </Stack>
+  );
+}
+
+export default function TaskDetail({ taskId, onClose, onDeleted }) {
+  const isMobile = useMediaQuery('(max-width: 768px)');
+
+  if (!taskId) return null;
+
+  if (isMobile) {
+    return (
+      <Drawer
+        opened={!!taskId}
+        onClose={onClose}
+        position="bottom"
+        size="90%"
+        withCloseButton={false}
+        padding={0}
+      >
+        <TaskDetailContent taskId={taskId} onClose={onClose} onDeleted={onDeleted} />
+      </Drawer>
+    );
+  }
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      width: 420,
+      background: 'white',
+      boxShadow: '-4px 0 24px rgba(0,0,0,0.12)',
+      zIndex: 200,
+      display: 'flex',
+      flexDirection: 'column',
+      borderLeft: '1px solid var(--mantine-color-default-border)',
+    }}>
+      <TaskDetailContent taskId={taskId} onClose={onClose} onDeleted={onDeleted} />
     </div>
   );
 }

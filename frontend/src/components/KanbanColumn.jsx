@@ -1,40 +1,70 @@
 import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Plus } from 'lucide-react';
+import { Paper, Badge, Text, ActionIcon, Group, Stack } from '@mantine/core';
+import { IconPlus } from '@tabler/icons-react';
 import TaskCard from './TaskCard';
-import { STATUS_COLORS, STATUS_LABELS } from './statusColors';
+import { STATUS_CONFIG } from './statusColors';
+
+const HEADER_BG = {
+  gray: '#f3f4f6',
+  blue: '#dbeafe',
+  yellow: '#fef9c3',
+  orange: '#ffedd5',
+  violet: '#ede9fe',
+  green: '#dcfce7',
+  red: '#fee2e2',
+};
 
 export default function KanbanColumn({ status, tasks, onTaskClick, onAddTask }) {
   const { setNodeRef } = useDroppable({ id: status });
-  const colors = STATUS_COLORS[status] || STATUS_COLORS.backlog;
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.backlog;
 
   return (
-    <div className="flex flex-col w-64 min-w-[256px] bg-gray-50 rounded-xl border border-gray-200">
+    <Paper
+      withBorder
+      radius="md"
+      style={{ width: 256, minWidth: 256, display: 'flex', flexDirection: 'column' }}
+    >
       {/* Header */}
-      <div className={`flex items-center justify-between px-3 py-2 rounded-t-xl ${colors.bg} border-b ${colors.border}`}>
-        <div className="flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${colors.dot}`} />
-          <span className={`text-sm font-semibold ${colors.text}`}>{STATUS_LABELS[status]}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <span className={`text-xs px-1.5 py-0.5 rounded-full ${colors.bg} ${colors.text} font-medium`}>{tasks.length}</span>
-          {status === 'backlog' && (
-            <button onClick={onAddTask} className={`ml-1 ${colors.text} hover:opacity-70 rounded`}>
-              <Plus size={16} />
-            </button>
+      <Group
+        px="sm"
+        py="xs"
+        justify="space-between"
+        style={{
+          background: HEADER_BG[cfg.color] || '#f3f4f6',
+          borderRadius: 'var(--mantine-radius-md) var(--mantine-radius-md) 0 0',
+          borderBottom: '1px solid var(--mantine-color-default-border)',
+        }}
+      >
+        <Group gap="xs">
+          <Text size="sm" fw={600}>{cfg.icon} {cfg.label}</Text>
+        </Group>
+        <Group gap={4}>
+          <Badge color={cfg.color} variant="filled" size="sm" circle>
+            {tasks.length}
+          </Badge>
+          {onAddTask && (
+            <ActionIcon size="sm" variant="subtle" color={cfg.color} onClick={onAddTask}>
+              <IconPlus size={14} />
+            </ActionIcon>
           )}
-        </div>
-      </div>
+        </Group>
+      </Group>
 
       {/* Cards */}
-      <div ref={setNodeRef} className="flex-1 p-2 flex flex-col gap-2 min-h-[100px]">
+      <Stack
+        ref={setNodeRef}
+        gap="xs"
+        p="xs"
+        style={{ flex: 1, minHeight: 100 }}
+      >
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
             <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} />
           ))}
         </SortableContext>
-      </div>
-    </div>
+      </Stack>
+    </Paper>
   );
 }
