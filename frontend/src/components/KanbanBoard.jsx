@@ -31,10 +31,16 @@ export default function KanbanBoard({ tasks, onTaskClick, onAddTask }) {
     setActiveTask(null);
     if (!over) return;
     const task = tasks.find((t) => t.id === active.id);
-    const targetStatus = ALL_STATUSES.includes(over.id)
-      ? over.id
-      : tasks.find((t) => t.id === over.id)?.status;
-    if (task && targetStatus && task.status !== targetStatus) {
+    if (!task) return;
+    // over.id puede ser el id de una columna (status) o el id de una tarea
+    let targetStatus = null;
+    if (ALL_STATUSES.includes(over.id)) {
+      targetStatus = over.id; // soltado en columna vacía
+    } else {
+      const overTask = tasks.find((t) => t.id === over.id);
+      if (overTask) targetStatus = overTask.status; // soltado sobre otra tarea
+    }
+    if (targetStatus && task.status !== targetStatus) {
       updateStatus.mutate({ id: task.id, status: targetStatus });
     }
   };
