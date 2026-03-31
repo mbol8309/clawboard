@@ -1,5 +1,4 @@
 const { Task, TaskMessage, Project } = require('../models');
-const { Op } = require('sequelize');
 const http = require('http');
 
 const HOOK_URL = process.env.OPENCLAW_HOOK_URL || 'http://localhost:18799/hooks/wake';
@@ -9,7 +8,7 @@ function sendWake(text) {
   const body = JSON.stringify({ text, mode: 'now' });
   const urlObj = new URL(HOOK_URL);
   const req = http.request({
-    hostname: urlObj.hostname, port: urlObj.port || 80, path: urlObj.pathname,
+    hostname: urlObj.hostname, port: parseInt(urlObj.port) || 80, path: urlObj.pathname,
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -18,7 +17,7 @@ function sendWake(text) {
     }
   }, (res) => {
     let d = ''; res.on('data', c => d += c);
-    res.on('end', () => console.log(`[poller] wake sent: ${d}`));
+    res.on('end', () => console.log(`[poller] wake sent: ${d.substring(0, 50)}`));
   });
   req.on('error', e => console.error(`[poller] error: ${e.message}`));
   req.write(body); req.end();
@@ -27,17 +26,23 @@ function sendWake(text) {
 async function notifyPendingTasks() {
   try {
     // Tareas en backlog
-    const backlog = await Task.findAll({ where: { status: 'backlog' }, include: [Project] });
+    const backlog = await Task.findAll({
+      where: { status: 'backlog' },
+      include: [Project, { model: TaskMessage, order: [['createdAt', 'DESC']], limit: 1 }]
+    });
 
     // Tareas en ready
-    const ready = await Task.findAll({ where: { status: 'ready' }, include: [Project] });
+    const ready = await Task.findAll({
+      where: { status: 'ready' },
+      include: [Project, { model: TaskMessage, order: [['createdAt', 'DESC']], limit: 1 }]
+    });
 
     // Tareas en proposed con último mensaje de usuario
     const proposed = await Task.findAll({
       where: { status: 'proposed' },
       include: [Project, { model: TaskMessage, order: [['createdAt', 'DESC']], limit: 1 }]
     });
-    const proposedWithUserMsg = proposed.filter(t => {
+    const proposedPending = proposed.filter(t => {
       const msgs = t.TaskMessages || [];
       return msgs.length > 0 && msgs[0].authorType === 'user';
     });
@@ -47,12 +52,12 @@ async function notifyPendingTasks() {
       where: { status: 'review' },
       include: [Project, { model: TaskMessage, order: [['createdAt', 'DESC']], limit: 1 }]
     });
-    const reviewWithUserMsg = review.filter(t => {
+    const reviewPending = review.filter(t => {
       const msgs = t.TaskMessages || [];
       return msgs.length > 0 && msgs[0].authorType === 'user';
     });
 
-    const pending = [...backlog, ...ready, ...proposedWithUserMsg, ...reviewWithUserMsg];
+    const pending = [...backlog, ...ready, ...proposedPending, ...reviewPending];
 
     if (pending.length === 0) {
       console.log('[poller] no pending tasks');
@@ -61,11 +66,22 @@ async function notifyPendingTasks() {
 
     console.log(`[poller] ${pending.length} tasks need attention`);
 
-    // Enviar un wake por cada tarea
     for (const task of pending) {
-      const text = `ClawBoard poll: tarea "${task.title}" (ID: ${task.id}, estado: ${task.status}, proyecto: ${task.Project?.name}). Lee /home/mbolivar/.openclaw/workspace/memory/clawboard-poll.md y actúa.`;
+      const lastMsg = (task.TaskMessages || [])[0];
+      const lastMsgText = lastMsg ? `Último mensaje (${lastMsg.authorType}): ${(lastMsg.content || '').substring(0, 150)}` : 'Sin mensajes previos';
+      const projectCtx = task.Project?.context ? `\n\nContexto técnico:\n${task.Project.context.substring(0, 400)}` : '';
+
+      const text = `ACCIÓN REQUERIDA — ClawBoard
+Tarea: "${task.title}"
+ID: ${task.id}
+Estado: ${task.status}
+Proyecto: ${task.Project?.name || '?'}
+${lastMsgText}
+${projectCtx}
+
+Lee /home/mbolivar/.openclaw/workspace/memory/clawboard-poll.md y procesa esta tarea AHORA según su estado (${task.status}).`;
+
       sendWake(text);
-      // Esperar 30s entre tareas para no saturar
       await new Promise(r => setTimeout(r, 30000));
     }
   } catch (err) {
