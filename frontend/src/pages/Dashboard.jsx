@@ -6,7 +6,7 @@ import {
   Modal, TextInput, Textarea, ActionIcon, Anchor, Stack, Loader
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconPlus, IconExternalLink, IconLogout, IconSettings } from '@tabler/icons-react';
+import { IconPlus, IconExternalLink, IconLogout, IconSettings, IconFileText } from '@tabler/icons-react';
 import api from '../services/api';
 import { useAuthStore } from '../store/authStore';
 
@@ -49,6 +49,11 @@ export default function Dashboard() {
             {user?.role === 'admin' && (
               <ActionIcon variant="subtle" color="gray" onClick={() => navigate('/settings')}>
                 <IconSettings size={18} />
+              </ActionIcon>
+            )}
+            {user?.role === 'admin' && (
+              <ActionIcon variant="subtle" color="gray" title="Logs" onClick={() => navigate('/admin/logs')}>
+                <IconFileText size={18} />
               </ActionIcon>
             )}
             <ActionIcon variant="subtle" color="red" onClick={() => { logout(); navigate('/'); }}>
