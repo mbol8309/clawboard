@@ -71,15 +71,12 @@ async function notifyPendingTasks() {
       const lastMsgText = lastMsg ? `Último mensaje (${lastMsg.authorType}): ${(lastMsg.content || '').substring(0, 150)}` : 'Sin mensajes previos';
       const projectCtx = task.Project?.context ? `\n\nContexto técnico:\n${task.Project.context.substring(0, 400)}` : '';
 
-      const text = `ACCIÓN REQUERIDA — ClawBoard
-Tarea: "${task.title}"
+      const text = `ClawBoard tarea pendiente.
 ID: ${task.id}
 Estado: ${task.status}
-Proyecto: ${task.Project?.name || '?'}
-${lastMsgText}
-${projectCtx}
+Título: ${task.title}
 
-Lee /home/mbolivar/.openclaw/workspace/memory/clawboard-poll.md y procesa esta tarea AHORA según su estado (${task.status}).`;
+Lee /home/mbolivar/.openclaw/workspace/memory/clawboard-poll.md y procesa esta tarea usando su ID.`;
 
       sendWake(text);
       await new Promise(r => setTimeout(r, 30000));

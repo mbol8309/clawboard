@@ -3,10 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   AppShell, Container, Grid, Card, Badge, Button, Group, Text, Title,
-  Modal, TextInput, Textarea, ActionIcon, Anchor, Stack, Loader
+  Modal, TextInput, Textarea, ActionIcon, Anchor, Stack, Loader, Tooltip
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconPlus, IconExternalLink, IconLogout, IconSettings, IconFileText } from '@tabler/icons-react';
+import { IconPlus, IconExternalLink, IconLogout, IconSettings, IconFileText, IconPencil } from '@tabler/icons-react';
 import api from '../services/api';
 import { useAuthStore } from '../store/authStore';
 
@@ -15,6 +15,7 @@ export default function Dashboard() {
   const { logout, user } = useAuthStore();
   const qc = useQueryClient();
   const [showModal, setShowModal] = useState(false);
+  const [editingProject, setEditingProject] = useState(null);
   const [form, setForm] = useState({ name: '', description: '', repositoryUrl: '', context: '' });
 
   const { data, isLoading } = useQuery({
@@ -26,18 +27,60 @@ export default function Dashboard() {
     mutationFn: (data) => api.post('/projects', data),
     onSuccess: () => {
       qc.invalidateQueries(['projects']);
-      setShowModal(false);
-      setForm({ name: '', description: '', repositoryUrl: '', context: '' });
+      closeModal();
       notifications.show({ message: 'Proyecto creado', color: 'green' });
     },
     onError: () => notifications.show({ message: 'Error al crear proyecto', color: 'red' }),
   });
 
+  const updateProject = useMutation({
+    mutationFn: ({ id, ...data }) => api.put(`/projects/${id}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries(['projects']);
+      closeModal();
+      notifications.show({ message: 'Proyecto actualizado', color: 'green' });
+    },
+    onError: () => notifications.show({ message: 'Error al actualizar proyecto', color: 'red' }),
+  });
+
+  const openCreate = () => {
+    setEditingProject(null);
+    setForm({ name: '', description: '', repositoryUrl: '', context: '' });
+    setShowModal(true);
+  };
+
+  const openEdit = (e, project) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingProject(project);
+    setForm({
+      name: project.name || '',
+      description: project.description || '',
+      repositoryUrl: project.repositoryUrl || '',
+      context: project.context || '',
+    });
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingProject(null);
+    setForm({ name: '', description: '', repositoryUrl: '', context: '' });
+  };
+
+  const handleSubmit = () => {
+    if (!form.name.trim()) return;
+    if (editingProject) {
+      updateProject.mutate({ id: editingProject.id, ...form });
+    } else {
+      createProject.mutate(form);
+    }
+  };
+
+  const isPending = createProject.isPending || updateProject.isPending;
+
   return (
-    <AppShell
-      header={{ height: 56 }}
-      padding="md"
-    >
+    <AppShell header={{ height: 56 }} padding="md">
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
           <Group gap="xs">
@@ -52,9 +95,11 @@ export default function Dashboard() {
               </ActionIcon>
             )}
             {user?.role === 'admin' && (
-              <ActionIcon variant="subtle" color="gray" title="Logs" onClick={() => navigate('/admin/logs')}>
-                <IconFileText size={18} />
-              </ActionIcon>
+              <Tooltip label="Logs">
+                <ActionIcon variant="subtle" color="gray" onClick={() => navigate('/admin/logs')}>
+                  <IconFileText size={18} />
+                </ActionIcon>
+              </Tooltip>
             )}
             <ActionIcon variant="subtle" color="red" onClick={() => { logout(); navigate('/'); }}>
               <IconLogout size={18} />
@@ -67,7 +112,7 @@ export default function Dashboard() {
         <Container size="lg">
           <Group justify="space-between" mb="lg">
             <Title order={3}>Proyectos</Title>
-            <Button leftSection={<IconPlus size={16} />} onClick={() => setShowModal(true)}>
+            <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
               Nuevo proyecto
             </Button>
           </Group>
@@ -89,37 +134,44 @@ export default function Dashboard() {
                   >
                     <Group justify="space-between" mb="xs">
                       <Text fw={600}>{project.name}</Text>
-                      {project.repositoryUrl && (
-                        <ActionIcon
-                          variant="subtle"
-                          color="gray"
-                          component="a"
-                          href={project.repositoryUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <IconExternalLink size={14} />
-                        </ActionIcon>
-                      )}
+                      <Group gap={4}>
+                        <Tooltip label="Editar proyecto">
+                          <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            onClick={(e) => openEdit(e, project)}
+                          >
+                            <IconPencil size={14} />
+                          </ActionIcon>
+                        </Tooltip>
+                        {project.repositoryUrl && (
+                          <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            component="a"
+                            href={project.repositoryUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <IconExternalLink size={14} />
+                          </ActionIcon>
+                        )}
+                      </Group>
                     </Group>
                     {project.description && (
                       <Text size="sm" c="dimmed" lineClamp={2} mb="sm">
                         {project.description}
                       </Text>
                     )}
-                    <Badge
-                      color={project.status === 'active' ? 'green' : 'gray'}
-                      variant="light"
-                      size="sm"
-                    >
-                      {project.status}
-                    </Badge>
-                    {project.context && (
-                      <Badge color="blue" variant="light" size="sm" ml="xs">
-                        Contexto ✓
+                    <Group gap="xs">
+                      <Badge color={project.status === 'active' ? 'green' : 'gray'} variant="light" size="sm">
+                        {project.status}
                       </Badge>
-                    )}
+                      {project.context && (
+                        <Badge color="blue" variant="light" size="sm">Contexto ✓</Badge>
+                      )}
+                    </Group>
                   </Card>
                 </Grid.Col>
               ))}
@@ -128,7 +180,12 @@ export default function Dashboard() {
         </Container>
       </AppShell.Main>
 
-      <Modal opened={showModal} onClose={() => setShowModal(false)} title="Nuevo proyecto">
+      <Modal
+        opened={showModal}
+        onClose={closeModal}
+        title={editingProject ? `Editar: ${editingProject.name}` : 'Nuevo proyecto'}
+        size="lg"
+      >
         <Stack gap="sm">
           <TextInput
             label="Nombre"
@@ -156,18 +213,14 @@ export default function Dashboard() {
             description="Este contexto se pasa automáticamente a los modelos de IA al procesar tareas"
             autosize
             minRows={4}
-            maxRows={12}
+            maxRows={15}
             value={form.context}
             onChange={(e) => setForm({ ...form, context: e.target.value })}
           />
           <Group justify="flex-end" mt="sm">
-            <Button variant="default" onClick={() => setShowModal(false)}>Cancelar</Button>
-            <Button
-              onClick={() => form.name.trim() && createProject.mutate(form)}
-              disabled={!form.name.trim()}
-              loading={createProject.isPending}
-            >
-              Crear
+            <Button variant="default" onClick={closeModal}>Cancelar</Button>
+            <Button onClick={handleSubmit} disabled={!form.name.trim()} loading={isPending}>
+              {editingProject ? 'Guardar cambios' : 'Crear'}
             </Button>
           </Group>
         </Stack>
