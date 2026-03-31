@@ -15,7 +15,7 @@ export default function Dashboard() {
   const { logout, user } = useAuthStore();
   const qc = useQueryClient();
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: '', description: '', repositoryUrl: '' });
+  const [form, setForm] = useState({ name: '', description: '', repositoryUrl: '', context: '' });
 
   const { data, isLoading } = useQuery({
     queryKey: ['projects'],
@@ -27,7 +27,7 @@ export default function Dashboard() {
     onSuccess: () => {
       qc.invalidateQueries(['projects']);
       setShowModal(false);
-      setForm({ name: '', description: '', repositoryUrl: '' });
+      setForm({ name: '', description: '', repositoryUrl: '', context: '' });
       notifications.show({ message: 'Proyecto creado', color: 'green' });
     },
     onError: () => notifications.show({ message: 'Error al crear proyecto', color: 'red' }),
@@ -110,6 +110,11 @@ export default function Dashboard() {
                     >
                       {project.status}
                     </Badge>
+                    {project.context && (
+                      <Badge color="blue" variant="light" size="sm" ml="xs">
+                        Contexto ✓
+                      </Badge>
+                    )}
                   </Card>
                 </Grid.Col>
               ))}
@@ -139,6 +144,16 @@ export default function Dashboard() {
             placeholder="https://github.com/..."
             value={form.repositoryUrl}
             onChange={(e) => setForm({ ...form, repositoryUrl: e.target.value })}
+          />
+          <Textarea
+            label="Contexto técnico del proyecto"
+            placeholder="Stack, convenciones, rutas de archivos, librerías principales..."
+            description="Este contexto se pasa automáticamente a los modelos de IA al procesar tareas"
+            autosize
+            minRows={4}
+            maxRows={12}
+            value={form.context}
+            onChange={(e) => setForm({ ...form, context: e.target.value })}
           />
           <Group justify="flex-end" mt="sm">
             <Button variant="default" onClick={() => setShowModal(false)}>Cancelar</Button>

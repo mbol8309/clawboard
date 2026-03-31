@@ -8,6 +8,7 @@ module.exports = (sequelize) => {
     description: { type: DataTypes.TEXT, allowNull: true },
     repositoryUrl: { type: DataTypes.STRING, allowNull: true },
     status: { type: DataTypes.STRING, defaultValue: 'active' },
+    context: { type: DataTypes.TEXT, allowNull: true },
     createdBy: { type: DataTypes.UUID, allowNull: false },
   });
 };
