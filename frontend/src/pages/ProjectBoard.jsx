@@ -5,7 +5,7 @@ import {
   AppShell, Group, Title, Text, Button, ActionIcon, Anchor, Modal, TextInput, Textarea
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconArrowLeft, IconPlus } from '@tabler/icons-react';
+import { IconArrowLeft, IconPlus, IconFolder } from '@tabler/icons-react';
 import KanbanBoard from '../components/KanbanBoard';
 import TaskDetail from '../components/TaskDetail';
 import api from '../services/api';
@@ -56,6 +56,12 @@ export default function ProjectBoard() {
               <Anchor href={project.repositoryUrl} target="_blank" size="xs">
                 {project.repositoryUrl}
               </Anchor>
+            )}
+            {project?.localPath && (
+              <Group gap={4}>
+                <IconFolder size={12} color="gray" />
+                <Text size="xs" c="dimmed">{project.localPath}</Text>
+              </Group>
             )}
           </div>
           <Button

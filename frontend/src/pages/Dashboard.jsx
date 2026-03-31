@@ -6,9 +6,10 @@ import {
   Modal, TextInput, Textarea, ActionIcon, Anchor, Stack, Loader, Tooltip
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconPlus, IconExternalLink, IconLogout, IconSettings, IconFileText, IconPencil } from '@tabler/icons-react';
+import { IconPlus, IconExternalLink, IconLogout, IconSettings, IconFileText, IconPencil, IconFolder } from '@tabler/icons-react';
 import api from '../services/api';
 import { useAuthStore } from '../store/authStore';
+import FolderBrowser from '../components/FolderBrowser';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -16,7 +17,8 @@ export default function Dashboard() {
   const qc = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
-  const [form, setForm] = useState({ name: '', description: '', repositoryUrl: '', context: '' });
+  const [form, setForm] = useState({ name: '', description: '', repositoryUrl: '', localPath: '', context: '' });
+  const [showFolderBrowser, setShowFolderBrowser] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['projects'],
@@ -45,7 +47,7 @@ export default function Dashboard() {
 
   const openCreate = () => {
     setEditingProject(null);
-    setForm({ name: '', description: '', repositoryUrl: '', context: '' });
+    setForm({ name: '', description: '', repositoryUrl: '', localPath: '', context: '' });
     setShowModal(true);
   };
 
@@ -57,6 +59,7 @@ export default function Dashboard() {
       name: project.name || '',
       description: project.description || '',
       repositoryUrl: project.repositoryUrl || '',
+      localPath: project.localPath || '',
       context: project.context || '',
     });
     setShowModal(true);
@@ -65,7 +68,7 @@ export default function Dashboard() {
   const closeModal = () => {
     setShowModal(false);
     setEditingProject(null);
-    setForm({ name: '', description: '', repositoryUrl: '', context: '' });
+    setForm({ name: '', description: '', repositoryUrl: '', localPath: '', context: '' });
   };
 
   const handleSubmit = () => {
@@ -171,6 +174,11 @@ export default function Dashboard() {
                       {project.context && (
                         <Badge color="blue" variant="light" size="sm">Contexto ✓</Badge>
                       )}
+                      {project.localPath && (
+                        <Badge color="cyan" variant="light" size="sm" leftSection={<IconFolder size={10} />}>
+                          Local
+                        </Badge>
+                      )}
                     </Group>
                   </Card>
                 </Grid.Col>
@@ -207,6 +215,19 @@ export default function Dashboard() {
             value={form.repositoryUrl}
             onChange={(e) => setForm({ ...form, repositoryUrl: e.target.value })}
           />
+          <TextInput
+            label="Ruta local del proyecto"
+            placeholder="Selecciona una carpeta del servidor..."
+            value={form.localPath}
+            readOnly
+            rightSection={
+              <ActionIcon variant="subtle" onClick={() => setShowFolderBrowser(true)}>
+                <IconFolder size={16} />
+              </ActionIcon>
+            }
+            onClick={() => setShowFolderBrowser(true)}
+            styles={{ input: { cursor: 'pointer' } }}
+          />
           <Textarea
             label="Contexto técnico del proyecto"
             placeholder="Stack, convenciones, rutas de archivos, librerías principales..."
@@ -225,6 +246,13 @@ export default function Dashboard() {
           </Group>
         </Stack>
       </Modal>
+
+      <FolderBrowser
+        opened={showFolderBrowser}
+        onClose={() => setShowFolderBrowser(false)}
+        onSelect={(path) => setForm({ ...form, localPath: path })}
+        initialPath={form.localPath}
+      />
     </AppShell>
   );
 }

@@ -1,9 +1,32 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const { Project, Task } = require('../models');
 const { verifyToken } = require('../middleware/auth');
 const router = express.Router();
 
 router.use(verifyToken);
+
+// GET /api/projects/browse-folders?dir=/some/path
+router.get('/browse-folders', async (req, res) => {
+  try {
+    const dirPath = req.query.dir || (process.platform === 'win32' ? 'C:\\' : '/');
+    const resolved = path.resolve(dirPath);
+
+    const entries = await fs.promises.readdir(resolved, { withFileTypes: true });
+    const folders = entries
+      .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+      .map((e) => ({
+        name: e.name,
+        path: path.join(resolved, e.name),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    res.json({ current: resolved, parent: path.dirname(resolved), folders });
+  } catch (err) {
+    res.status(400).json({ error: 'No se puede leer el directorio', details: err.message });
+  }
+});
 
 // GET /api/projects
 router.get('/', async (req, res) => {
@@ -22,8 +45,8 @@ router.get('/', async (req, res) => {
 // POST /api/projects
 router.post('/', async (req, res) => {
   try {
-    const { name, description, repositoryUrl } = req.body;
-    const project = await Project.create({ name, description, repositoryUrl, createdBy: req.user.id });
+    const { name, description, repositoryUrl, localPath } = req.body;
+    const project = await Project.create({ name, description, repositoryUrl, localPath, createdBy: req.user.id });
     res.status(201).json(project);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
