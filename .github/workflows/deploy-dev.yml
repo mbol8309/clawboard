@@ -1,0 +1,60 @@
+name: Deploy to Raspberry Pi (dev)
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build frontend
+        run: cd frontend && npm install && npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+          retention-days: 3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-src
+          path: |
+            backend/
+            !backend/node_modules/
+            !backend/database.sqlite
+            !backend/uploads/
+            !backend/.env
+            !backend/logs/
+          retention-days: 3
+
+  deploy:
+    runs-on: self-hosted
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: /tmp/deploy-clawboard/frontend
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-src
+          path: /tmp/deploy-clawboard/backend
+      - name: Deploy frontend
+        run: rsync -av --delete /tmp/deploy-clawboard/frontend/ /srv/projects/clawboard/frontend/
+      - name: Deploy backend
+        run: |
+          rsync -av --delete \
+            --exclude='database.sqlite' \
+            --exclude='logs/' \
+            --exclude='.env' \
+            /tmp/deploy-clawboard/backend/ /srv/projects/clawboard/backend/
+          cd /srv/projects/clawboard/backend && npm install --omit=dev
+      - name: Restart service
+        run: sudo systemctl restart clawboard-api
+      - name: Cleanup
+        run: rm -rf /tmp/deploy-clawboard
