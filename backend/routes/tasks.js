@@ -6,20 +6,12 @@ const router = express.Router();
 
 // Push a OpenClaw hook para procesar una tarea de forma independiente
 function notifyAgent(task, action) {
-  const HOOK_URL = process.env.OPENCLAW_HOOK_URL || 'http://100.77.100.17:18789/hooks/agent';
+  const HOOK_URL = process.env.OPENCLAW_HOOK_URL || 'http://localhost:18799/hooks/wake';
   const HOOK_TOKEN = process.env.OPENCLAW_HOOK_TOKEN || 'clawboard-hook-secret';
 
-  const message = `Lee /home/mbolivar/.openclaw/workspace/memory/clawboard-poll.md para las reglas.
-Acción requerida: ${action}
-Tarea ID: ${task.id}
-Título: ${task.title}
-Descripción: ${task.description || '(sin descripción)'}
-Estado actual: ${task.status}
-API Key ClawBoard: noa-agent-key
-URL ClawBoard: http://localhost:3003
-Procesa SOLO esta tarea de forma independiente.`;
+  const text = `ClawBoard: ${action} — Tarea "${task.title}" (ID: ${task.id}, estado: ${task.status}). Lee /home/mbolivar/.openclaw/workspace/memory/clawboard-poll.md y actúa.`;
 
-  const body = JSON.stringify({ message, agentId: 'main' });
+  const body = JSON.stringify({ text, mode: 'now' });
 
   const urlObj = new URL(HOOK_URL);
   const req = http.request({
